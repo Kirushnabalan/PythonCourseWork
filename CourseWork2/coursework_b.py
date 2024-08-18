@@ -204,17 +204,6 @@ def display_summary():
         total_amount = sum(expense['amount'] for expense in expenses)
         print(f"{category}: Total amount spent - LKR{total_amount:.2f}")
 
-# Function to launch the GUI
-def view_for_GUI():
-    try:
-        print("Opening window...")
-        root = tk.Tk()
-        app = FinanceTrackerGUI(root)
-        app.display_transactions(app.transactions)
-        root.mainloop()
-    except Exception as e:
-        print(f"Unexpected error while opening the GUI: {e}")
-
 # Main menu function to interact with the user
 def main_menu():
     load_transactions()
@@ -247,8 +236,6 @@ def main_menu():
             read_bulk_transactions_from_file(filename)
             save_transactions()
         elif choice == "7":
-            view_for_GUI()
-        elif choice == "8":
             print("Exiting...")
             save_transactions()
             break
