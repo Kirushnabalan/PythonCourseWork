@@ -1,4 +1,3 @@
-from assignment03 import FinanceTrackerGUI  # Importing FinanceTrackerGUI from assignment03
 import json
 import tkinter as tk
 from datetime import datetime
