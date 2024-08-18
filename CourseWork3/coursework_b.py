@@ -1,206 +1,260 @@
-import tkinter as tk  # Import the tkinter module as tk for way to easy reference.
-from tkinter import ttk  # Import ttk submodule from tkinter for themed widgets.
-from datetime import datetime  # Import the datetime class from the datetime module.
-import json  # Import the json module for file handling.
+from assignment03 import FinanceTrackerGUI  # Importing FinanceTrackerGUI from assignment03
+import json
+import tkinter as tk
+from datetime import datetime
 
-class FinanceTrackerGUI:
-    def __init__(self, root):
-        self.root = root  # Assign the Tkinter root window to an instance variable.
-        self.root.title("Personal Finance Tracker")  # create the window title
-        self.create_widgets()  # Call the method to create GUI widgets.
-        self.root.geometry("600x700")  # set window size
-        self.transactions = self.load_transactions("transactions.json")  # load file for transaction
-        self.expense_labels = {}  # Initialize expense labels dictionary
-        # Inside the __init__ method, create a label for the "not found" message
-        self.not_found_label = tk.Label(self.root, text="", font=("Adobe Caslon Pro Bold", 12), fg="red")
-        self.not_found_label.pack()
+transactions = {}
 
-    def create_widgets(self):
-        # Create and configure GUI widgets
-        # Define a custom style for the buttons
-        self.style = ttk.Style()
-        self.style.configure('Custom.TButton', font=('Adobe Caslon Pro Bold', 10), fg='black', bg='#808080')
+# Function to validate the date format and ensure it's not empty
+def validate_date(date_str, date_format="%Y|%m|%d"):
+    if not date_str.strip():  # Check for empty or whitespace-only string
+        return False
+    try:
+        datetime.strptime(date_str, date_format)
+        return True
+    except ValueError:
+        return False
 
-        # Label for title
-        self.label = tk.Label(self.root, text="Personal Financial Tracker ($)", font=("Adobe Caslon Pro Bold", 10),pady=30, padx=30)
-        self.label.pack()
+# Function to load transactions from a JSON file
+def load_transactions():
+    try:
+        with open("transactions.json", "r") as file:
+            data = json.load(file)
+            transactions.update(data)
+    except FileNotFoundError:
+        print("File not found!")
+    except json.JSONDecodeError:
+        print("Error: Could not decode the JSON file.")
+    except Exception as e:
+        print(f"Unexpected error while loading transactions: {e}")
 
-        # Label for description
-        self.label = tk.Label(self.root,text="Click the + button next to each category to view the amount and date.",font=("Adobe Garamond Pro", 13))
-        self.label.pack()
+# Function to save transactions to a JSON file
+def save_transactions():
+    try:
+        with open("transactions.json", "w") as file:
+            json.dump(transactions, file)
+    except FileNotFoundError:
+        print("File not found!")
+    except IOError:
+        print("Error: Unable to write to the file.")
+    except Exception as e:
+        print(f"Unexpected error while saving transactions: {e}")
 
-        # Frame for table and scrollbar
-        self.table_frame = tk.Frame(self.root, bd=10, bg="dark gray")
-        self.table_frame.pack(fill=tk.BOTH, expand=1)
+# Function to add transactions from a text file
+def read_bulk_transactions_from_file(filename):
+    if not filename.strip():
+        print("Filename cannot be empty.")
+        return
+    
+    try:
+        with open(filename, 'r') as file:
+            lines = file.readlines()
 
-        # Canvas widget to hold the inner frame
-        self.canvas = tk.Canvas(self.table_frame)
-        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+            for line in lines:
+                data = line.strip().split(',')
+                category, amount_str, date = data[0], data[1], data[2]
 
-        # Inner frame to hold the Treeview widget
-        self.inner_frame = tk.Frame(self.canvas)
-        self.canvas.create_window((0, 0), window=self.inner_frame, anchor=tk.NW)
+                if not category.strip() or not amount_str.strip() or not date.strip():
+                    print(f"Invalid data in line: {line}")
+                    continue
 
-        # Treeview for displaying transactions
-        self.tree = ttk.Treeview(self.inner_frame, columns=("Date", "Amount"))
-        self.tree.column("#0", width=120, anchor=tk.W)
-        self.tree.column("Date", width=230, anchor=tk.CENTER)
-        self.tree.column("Amount", width=230, anchor=tk.CENTER)
-        self.tree.heading("#0", text="Category", anchor=tk.W, command=lambda: self.sort_by_column("#0", False))
-        self.tree.heading("Date", text="Date", anchor=tk.CENTER, command=lambda: self.sort_by_column("Date", False))
-        self.tree.heading("Amount", text="Amount", anchor=tk.CENTER,command=lambda: self.sort_by_column("Amount", False))
-        self.tree.pack(fill=tk.BOTH, expand=1)
+                try:
+                    amount = float(amount_str)
+                except ValueError:
+                    print(f"Invalid amount in line: {line}")
+                    continue
 
-        # Scrollbar for the Treeview
-        tree_scroll = ttk.Scrollbar(self.table_frame, orient=tk.VERTICAL, command=self.tree.yview)
-        tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.tree.configure(yscrollcommand=tree_scroll.set)
+                if not validate_date(date):
+                    print(f"Invalid date format in line: {line}")
+                    continue
 
-        # Search bar and button
-        self.label_search = tk.Label(self.root, text="Search here...\nDate ex(YYYY|MM|DD)",
-                                      font=("Adobe Caslon Pro Bold", 10), fg="#808080")
-        self.label_search.pack(pady=10)
+                if category in transactions:
+                    transactions[category].append({"amount": amount, "date": date})
+                else:
+                    transactions[category] = [{"amount": amount, "date": date}]
+            print("Transactions data saved successfully.")
+    except FileNotFoundError:
+        print(f"Error: {filename} not found!")
+    except Exception as e:
+        print(f"Unexpected error while reading transactions: {e}")
 
-        self.search_var = tk.StringVar()
-        self.search_entry = tk.Entry(self.root, textvariable=self.search_var, width=15, borderwidth=3)
-        self.search_entry.pack(fill=tk.X, padx=10, pady=5)
-
-        self.search_button = ttk.Button(self.root, text="Search", style="Custom.TButton",
-                                         command=self.search_transactions)
-        self.search_button.pack()
-
-        # button for summary of expense
-        self.expense_button = ttk.Button(self.root, text="Show Summary", style="Custom.TButton",
-                                          command=self.show_summary_expense)
-        self.expense_button.pack()
-
-        # button for exit the window
-        self.exit_button = ttk.Button(self.root, text="Exit", style="Custom.TButton", command=self.root.destroy)
-        self.exit_button.pack()
-
-        # Configure canvas scrolling
-        self.inner_frame.bind("<Configure>", self.frame_configure)
-
-    def frame_configure(self, event):
-        # Reset the scroll region to encompass the inner frame
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-    def load_transactions(self, filename):
-        try:
-            with open(filename, "r") as file:  # Open the JSON file for reading.
-                transactions = json.load(file)  # Load JSON data into a Python dictionary
-            return transactions  # Return the loaded transactions.
-        except FileNotFoundError:
-            return {}  # Return an empty dictionary if the file is not found.
-
-    def show_summary_expense(self):
-        # Clear existing labels
-        for label in self.expense_labels.values():
-            label.destroy()
-        self.expense_labels = {}
-
-        # Calculate and display expenses for each category
-        for category, items in self.transactions.items():
-            category_total = sum(item["amount"] for item in items)
-            label_text = f"{category}: LKR {category_total:.2f}"
-            label = tk.Label(self.root, text=label_text, font=("Adobe Caslon Pro Bold", 12), fg="black")
-            label.pack()
-            self.expense_labels[category] = label
-
-    def display_transactions(self, transactions):
-        # Clear existing entries
-        self.tree.delete(*self.tree.get_children())
-
-        # Add transactions to the treeview
-        for category, items in transactions.items():
-            sorted_items = sorted(items, key=lambda x: datetime.strptime(x['date'], '%Y|%m|%d'))
-            category_node = self.tree.insert("", "end", text=category)
-            for item in sorted_items:
-                # Convert date format to YYYY|MM|DD
-                formatted_date = datetime.strptime(item['date'], '%Y|%m|%d').strftime('%Y|%m|%d')
-                child_node = self.tree.insert(category_node, "end")
-                self.tree.set(child_node, "Date", formatted_date)
-                self.tree.set(child_node, "Amount", item["amount"])
-
-    def search_transactions(self):
-        # Search for transactions based on user input
-        search_term = self.search_var.get().strip().lower()
-        if search_term:
-            results = {}
-            for category, items in self.transactions.items():
-                matched_items = [item for item in items if
-                             search_term in item.get("date", "").lower() or
-                             search_term in str(item.get("amount", "")).lower()]
-                if matched_items:
-                    results[category] = matched_items
-
-            # Check if the search term matches the parent category names
-            matched_categories = [category for category in self.transactions.keys() if search_term in category.lower()]
-            for category in matched_categories:
-                if category not in results:
-                    results[category] = self.transactions[category]
-
-            # Check if the search term matches the child categories' dates
-            child_category_matches = {}
-            for category, items in self.transactions.items():
-                child_matched_items = [item for item in items if search_term in item.get("date", "").lower()]
-                if child_matched_items:
-                    child_category_matches[category] = child_matched_items
-            results.update(child_category_matches)
-
-            if not results:
-                self.not_found_label.config(text="No matching transactions found!")
-            else:
-                self.not_found_label.config(text="")
-            self.display_transactions(results)
-        else:
-            self.not_found_label.config(text="")
-            self.display_transactions(self.transactions)
-            
-    def sort_by_column(self, column, reverse):
-        # Define a key function based on the column
-        if column == "Date":
-            key_func = lambda x: (datetime.strptime(x[0], '%Y|%m|%d') if x[0] else datetime.min)
-        else:
-            key_func = lambda x: (float(x[0]) if x[0] else float('inf'))
-
-        # Get all the items in the current column
-        categories = self.tree.get_children('')
-
-        for category in categories:
-            children = self.tree.get_children(category)
-            sorted_children = [(self.tree.set(child, column), child) for child in children]
-            # Sort the items based on the key function and reverse flag
-            sorted_children.sort(key=lambda x: key_func(x), reverse=reverse)
-
-            new_index = 0
-            for value, new_child in sorted_children:
-                # Rearrange the items in the Treeview based on the sorted order
-                self.tree.move(new_child, category, new_index)
-                new_index += 1
-
-                # Sort child nodes within each category
-                if column == "Date":
-                    grandchildren = self.tree.get_children(new_child)
-                    sorted_grandchildren = [(self.tree.set(grandchild, column), grandchild) for grandchild in grandchildren]
-                    # Sort the child nodes based on the key function and reverse flag
-                    sorted_grandchildren.sort(key=lambda x: key_func(x), reverse=reverse)
-
-                    new_grand_index = 0
-                    for v, new_grand_child in sorted_grandchildren:
-                        # Rearrange the child nodes in the Treeview based on the sorted order
-                        self.tree.move(new_grand_child, new_child, new_grand_index)
-                        new_grand_index += 1
-
-        # Reverse the sort order for the next time the column is clicked
-        self.tree.heading(column, command=lambda: self.sort_by_column(column, not reverse))
-
+# Function to add a new transaction
+def add_transaction():
+    try:
+        category = input("Enter category: ").strip()
+        if not category:
+            print("Category cannot be empty.")
+            return
         
-def main():
-    root = tk.Tk()  # Create the Tkinter root window
-    app = FinanceTrackerGUI(root)  # Create an instance of the FinanceTrackerGUI class.
-    app.display_transactions(app.transactions)  # Display transactions in the GUI.
-    root.mainloop()  # Start the Tkinter event loop.
+        amount_str = input("Enter amount: ").strip()
+        if not amount_str:
+            print("Amount cannot be empty.")
+            return
+
+        try:
+            amount = float(amount_str)
+        except ValueError:
+            print("Invalid amount. Please enter a valid number.")
+            return
+
+        date = input("Enter date (YYYY|MM|DD): ").strip()
+        if not validate_date(date):
+            print("Invalid date format. Please use YYYY|MM|DD.")
+            return
+
+        new_transaction = {"amount": amount, "date": date}
+        if category in transactions:
+            transactions[category].append(new_transaction)
+        else:
+            transactions[category] = [new_transaction]
+
+        print("Transaction added successfully.")
+    except Exception as e:
+        print(f"Unexpected error while adding a transaction: {e}")
+
+# Function to view all transactions
+def view_transactions():
+    if transactions:
+        i = 1
+        for category, details_list in transactions.items():
+            print(f"{i}. Category: {category}")
+            j = 1
+            for details in details_list:
+                print(f"   {j}. Amount: {details['amount']}\n      Date: {details['date']}")
+                j += 1
+            i += 1
+    else:
+        print("No transactions found.")
+
+# Function to update a transaction
+def update_transaction():
+    view_transactions()
+    if transactions:
+        try:
+            category_index = input("Enter the index of the category to update: ").strip()
+            if not category_index.isdigit():
+                print("Invalid index. Please enter a valid number.")
+                return
+            category_index = int(category_index) - 1
+
+            category = list(transactions.keys())[category_index]
+
+            transaction_index = input("Enter the index of the transaction to update: ").strip()
+            if not transaction_index.isdigit():
+                print("Invalid index. Please enter a valid number.")
+                return
+            transaction_index = int(transaction_index) - 1
+
+            amount_str = input("Enter amount: ").strip()
+            if not amount_str:
+                print("Amount cannot be empty.")
+                return
+            amount = float(amount_str)
+
+            date = input("Enter date (YYYY|MM|DD): ").strip()
+            if not validate_date(date):
+                print("Invalid date format. Please use YYYY|MM|DD.")
+                return
+
+            transactions[category][transaction_index]["amount"] = amount
+            transactions[category][transaction_index]["date"] = date
+
+            print("Transaction updated successfully.")
+        except (IndexError, ValueError):
+            print("Invalid input. Please enter valid indices and amounts.")
+        except Exception as e:
+            print(f"Unexpected error while updating the transaction: {e}")
+    else:
+        print("No transactions found.")
+
+# Function to delete a transaction
+def delete_transaction():
+    view_transactions()
+    if transactions:
+        try:
+            category_index = input("Enter the index of the category: ").strip()
+            if not category_index.isdigit():
+                print("Invalid index. Please enter a valid number.")
+                return
+            category_index = int(category_index) - 1
+
+            category = list(transactions.keys())[category_index]
+
+            transaction_index = input("Enter the index of the transaction to delete: ").strip()
+            if not transaction_index.isdigit():
+                print("Invalid index. Please enter a valid number.")
+                return
+            transaction_index = int(transaction_index) - 1
+
+            if 0 <= transaction_index < len(transactions[category]):
+                deleted_transaction = transactions[category].pop(transaction_index)
+                print("Transaction deleted successfully:", deleted_transaction)
+            else:
+                print("Invalid index. Please try again.")
+        except (ValueError, IndexError):
+            print("Invalid input. Please enter valid indices.")
+        except Exception as e:
+            print(f"Unexpected error while deleting the transaction: {e}")
+    else:
+        print("No transactions found.")
+
+# Function to display a summary of all transactions
+def display_summary():
+    print("Summary:")
+    for category, expenses in transactions.items():
+        total_amount = sum(expense['amount'] for expense in expenses)
+        print(f"{category}: Total amount spent - LKR{total_amount:.2f}")
+
+# Function to launch the GUI
+def view_for_GUI():
+    try:
+        print("Opening window...")
+        root = tk.Tk()
+        app = FinanceTrackerGUI(root)
+        app.display_transactions(app.transactions)
+        root.mainloop()
+    except Exception as e:
+        print(f"Unexpected error while opening the GUI: {e}")
+
+# Main menu function to interact with the user
+def main_menu():
+    load_transactions()
+
+    while True:
+        print("\nPersonal Finance Tracker")
+        print("1. Add Transaction")
+        print("2. View Transactions")
+        print("3. Update Transaction")
+        print("4. Delete Transaction")
+        print("5. Display Summary")
+        print("6. Add Transactions from File")
+        print("7. View GUI Window")
+        print("8. Save and Exit")
+
+        choice = input("Enter your choice: ").strip()
+
+        if choice == "1":
+            add_transaction()
+        elif choice == "2":
+            view_transactions()
+        elif choice == "3":
+            update_transaction()
+        elif choice == "4":
+            delete_transaction()
+        elif choice == "5":
+            display_summary()
+        elif choice == "6":
+            filename = input("Enter filename to load transactions from: ").strip()
+            read_bulk_transactions_from_file(filename)
+            save_transactions()
+        elif choice == "7":
+            view_for_GUI()
+        elif choice == "8":
+            print("Exiting...")
+            save_transactions()
+            break
+        else:
+            print("Invalid choice. Please try again.")
 
 if __name__ == "__main__":
-    main()
+    main_menu()
