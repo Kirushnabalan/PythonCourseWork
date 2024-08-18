@@ -1,4 +1,4 @@
-import tkinter as tk  # Import the tkinter module as tk for way to easy reference.
+import tkinter as tk  # Import the tkinter module as tk for easy reference.
 from tkinter import ttk  # Import ttk submodule from tkinter for themed widgets.
 from datetime import datetime  # Import the datetime class from the datetime module.
 import json  # Import the json module for file handling.
@@ -6,50 +6,58 @@ import json  # Import the json module for file handling.
 class FinanceTrackerGUI:
     def __init__(self, root):
         self.root = root  # Assign the Tkinter root window to an instance variable.
-        self.root.title("Personal Finance Tracker")  # create the window title
-        self.create_widgets()  # Call the method to create GUI widgets.
-        self.root.geometry("600x700")  # set window size
-        self.transactions = self.load_transactions("transactions.json")  # load file for transaction
+        self.root.title("Personal Finance Tracker")  # Set the window title
+        self.root.geometry("600x700")  # Set window size
+        self.root.configure(bg="#F5F5F5")  # Set background color of the root window
+
+        self.transactions = self.load_transactions("transactions.json")  # Load file for transactions
         self.expense_labels = {}  # Initialize expense labels dictionary
+
+        self.create_widgets()  # Call the method to create GUI widgets.
+
         # Inside the __init__ method, create a label for the "not found" message
-        self.not_found_label = tk.Label(self.root, text="", font=("Adobe Caslon Pro Bold", 12), fg="red")
+        self.not_found_label = tk.Label(self.root, text="", font=("Adobe Caslon Pro Bold", 12), fg="red", bg="#F5F5F5")
         self.not_found_label.pack()
 
     def create_widgets(self):
         # Create and configure GUI widgets
         # Define a custom style for the buttons
         self.style = ttk.Style()
-        self.style.configure('Custom.TButton', font=('Adobe Caslon Pro Bold', 10), fg='black', bg='#808080')
+        self.style.configure('Custom.TButton', font=('Adobe Caslon Pro Bold', 10), foreground='black', background='#808080')
+        self.style.map('Custom.TButton', background=[('active', '#A9A9A9')])  # Active state color
 
         # Label for title
-        self.label = tk.Label(self.root, text="Personal Financial Tracker ($)", font=("Adobe Caslon Pro Bold", 10),pady=30, padx=30)
-        self.label.pack()
+        self.title_label = tk.Label(self.root, text="Personal Financial Tracker ($)", font=("Adobe Caslon Pro Bold", 14), pady=20, padx=20, bg="#4682B4", fg="white")
+        self.title_label.pack()
 
         # Label for description
-        self.label = tk.Label(self.root,text="Click the + button next to each category to view the amount and date.",font=("Adobe Garamond Pro", 13))
-        self.label.pack()
+        self.description_label = tk.Label(self.root, text="Click the + button next to each category to view the amount and date.", font=("Adobe Garamond Pro", 13), bg="#F5F5F5")
+        self.description_label.pack()
 
         # Frame for table and scrollbar
-        self.table_frame = tk.Frame(self.root, bd=10, bg="dark gray")
+        self.table_frame = tk.Frame(self.root, bd=10, bg="#D3D3D3")
         self.table_frame.pack(fill=tk.BOTH, expand=1)
 
         # Canvas widget to hold the inner frame
-        self.canvas = tk.Canvas(self.table_frame)
+        self.canvas = tk.Canvas(self.table_frame, bg="#F5F5F5")
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 
         # Inner frame to hold the Treeview widget
-        self.inner_frame = tk.Frame(self.canvas)
+        self.inner_frame = tk.Frame(self.canvas, bg="#F5F5F5")
         self.canvas.create_window((0, 0), window=self.inner_frame, anchor=tk.NW)
 
         # Treeview for displaying transactions
-        self.tree = ttk.Treeview(self.inner_frame, columns=("Date", "Amount"))
+        self.tree = ttk.Treeview(self.inner_frame, columns=("Date", "Amount"), show='tree')
         self.tree.column("#0", width=120, anchor=tk.W)
         self.tree.column("Date", width=230, anchor=tk.CENTER)
         self.tree.column("Amount", width=230, anchor=tk.CENTER)
         self.tree.heading("#0", text="Category", anchor=tk.W, command=lambda: self.sort_by_column("#0", False))
         self.tree.heading("Date", text="Date", anchor=tk.CENTER, command=lambda: self.sort_by_column("Date", False))
-        self.tree.heading("Amount", text="Amount", anchor=tk.CENTER,command=lambda: self.sort_by_column("Amount", False))
+        self.tree.heading("Amount", text="Amount", anchor=tk.CENTER, command=lambda: self.sort_by_column("Amount", False))
         self.tree.pack(fill=tk.BOTH, expand=1)
+        self.tree.tag_configure('oddrow', background="#E8E8E8")
+        self.tree.tag_configure('evenrow', background="#DFDFDF")
+        self.tree.tag_configure('highlight', foreground="white", background="darkblue")
 
         # Scrollbar for the Treeview
         tree_scroll = ttk.Scrollbar(self.table_frame, orient=tk.VERTICAL, command=self.tree.yview)
@@ -57,24 +65,21 @@ class FinanceTrackerGUI:
         self.tree.configure(yscrollcommand=tree_scroll.set)
 
         # Search bar and button
-        self.label_search = tk.Label(self.root, text="Search here...\nDate ex(YYYY|MM|DD)",
-                                      font=("Adobe Caslon Pro Bold", 10), fg="#808080")
+        self.label_search = tk.Label(self.root, text="Search here...\nDate ex(YYYY|MM|DD)", font=("Adobe Caslon Pro Bold", 10), fg="#808080", bg="#F5F5F5")
         self.label_search.pack(pady=10)
 
         self.search_var = tk.StringVar()
-        self.search_entry = tk.Entry(self.root, textvariable=self.search_var, width=15, borderwidth=3)
+        self.search_entry = tk.Entry(self.root, textvariable=self.search_var, width=15, borderwidth=3, bg="#F0FFFF")
         self.search_entry.pack(fill=tk.X, padx=10, pady=5)
 
-        self.search_button = ttk.Button(self.root, text="Search", style="Custom.TButton",
-                                         command=self.search_transactions)
+        self.search_button = ttk.Button(self.root, text="Search", style="Custom.TButton", command=self.search_transactions)
         self.search_button.pack()
 
-        # button for summary of expense
-        self.expense_button = ttk.Button(self.root, text="Show Summary", style="Custom.TButton",
-                                          command=self.show_summary_expense)
+        # Button for summary of expense
+        self.expense_button = ttk.Button(self.root, text="Show Summary", style="Custom.TButton", command=self.show_summary_expense)
         self.expense_button.pack()
 
-        # button for exit the window
+        # Button to exit the window
         self.exit_button = ttk.Button(self.root, text="Exit", style="Custom.TButton", command=self.root.destroy)
         self.exit_button.pack()
 
@@ -103,7 +108,7 @@ class FinanceTrackerGUI:
         for category, items in self.transactions.items():
             category_total = sum(item["amount"] for item in items)
             label_text = f"{category}: LKR {category_total:.2f}"
-            label = tk.Label(self.root, text=label_text, font=("Adobe Caslon Pro Bold", 12), fg="black")
+            label = tk.Label(self.root, text=label_text, font=("Adobe Caslon Pro Bold", 12), fg="black", bg="#F5F5F5")
             label.pack()
             self.expense_labels[category] = label
 
@@ -111,14 +116,14 @@ class FinanceTrackerGUI:
         # Clear existing entries
         self.tree.delete(*self.tree.get_children())
 
-        # Add transactions to the treeview
-        for category, items in transactions.items():
+        # Add transactions to the Treeview
+        for idx, (category, items) in enumerate(transactions.items()):
             sorted_items = sorted(items, key=lambda x: datetime.strptime(x['date'], '%Y|%m|%d'))
-            category_node = self.tree.insert("", "end", text=category)
-            for item in sorted_items:
+            category_node = self.tree.insert("", "end", text=category, tags=('evenrow' if idx % 2 == 0 else 'oddrow',))
+            for i, item in enumerate(sorted_items):
                 # Convert date format to YYYY|MM|DD
                 formatted_date = datetime.strptime(item['date'], '%Y|%m|%d').strftime('%Y|%m|%d')
-                child_node = self.tree.insert(category_node, "end")
+                child_node = self.tree.insert(category_node, "end", tags=('evenrow' if i % 2 == 0 else 'oddrow',))
                 self.tree.set(child_node, "Date", formatted_date)
                 self.tree.set(child_node, "Amount", item["amount"])
 
@@ -129,8 +134,8 @@ class FinanceTrackerGUI:
             results = {}
             for category, items in self.transactions.items():
                 matched_items = [item for item in items if
-                             search_term in item.get("date", "").lower() or
-                             search_term in str(item.get("amount", "")).lower()]
+                                 search_term in item.get("date", "").lower() or
+                                 search_term in str(item.get("amount", "")).lower()]
                 if matched_items:
                     results[category] = matched_items
 
@@ -156,7 +161,7 @@ class FinanceTrackerGUI:
         else:
             self.not_found_label.config(text="")
             self.display_transactions(self.transactions)
-            
+
     def sort_by_column(self, column, reverse):
         # Define a key function based on the column
         if column == "Date":
@@ -195,7 +200,7 @@ class FinanceTrackerGUI:
         # Reverse the sort order for the next time the column is clicked
         self.tree.heading(column, command=lambda: self.sort_by_column(column, not reverse))
 
-        
+
 def main():
     root = tk.Tk()  # Create the Tkinter root window
     app = FinanceTrackerGUI(root)  # Create an instance of the FinanceTrackerGUI class.
